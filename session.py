@@ -16,8 +16,8 @@ class MWApiSession(Session):
         super(MWApiSession, self).__init__(*args, **kwargs)
         self.api_root = api_root
 
-        self._userinfo = self._update_userinfo([])
         self._interesting_user_properties = set()
+        self._userinfo = self._update_userinfo([])
 
 
     def _uiprop(self, prop : str) -> Optional[str]:
@@ -146,7 +146,7 @@ class MWApiSession(Session):
                 elif type(aggregate_data[key]) is list:
                     aggregate_data[key] = aggregate_data[key] + response[key]
                 elif aggregate_data[key] != response[key]:
-                    warnings.warn(f"Single-value item {key} has divergent values in continued query: ({aggregate_data[key]}, {response[key]})", category=MWApiWarning)
+                    warnings.warn(f"Single-value item {key} has divergent values in continued query: ({aggregate_data[key]}, {response[key]})", category=MediaWikiWarning)
 
 
             if "continue" not in full_response:
