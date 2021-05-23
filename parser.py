@@ -32,36 +32,13 @@ class MWApiParser(EncapsulatingParser):
         namespace.session = MWApiSession(namespace.API_root)
 
         if has_username and has_password:
-            login_response = namespace.session.post_action("login", token_type="login", lgname=namespace.username, lgpassword=namespace.password)["login"]
-
-            if login_response["result"] == "Failed":
-                parser.error(f"Token login failed with reason: {login_response['reason']}")
-            elif login_response["result"] == "WrongToken":
-                parser.error("Invalid login token")
-            elif login_response["result"] == "NeedToken":
-                parser.error("Token login returned result NeedToken.")
-                print(login_response)
-            elif login_response["result"] == "Success":
-                print(f"Logged in as user {login_response['lgusername']} (ID: {login_response['lguserid']})", file=sys.stderr)
-            else:
-                parser.error(login_response)
+            namespace.session.login(namespace.username, namespace.password)
+            del(namespace.username)
+            del(namespace.password)
         elif has_username:
+            del(namespace.username)
             parser.error("Missing argument: PASSWORD")
         elif has_password:
-            parser.error("Missing argument: USERNAME")
-
-        userinfo_params = {
-            "action": "query",
-            "format": "json",
-            "meta": "userinfo",
-            "uiprop": "rights"
-        }
-
-        userinfo = namespace.session.full_query(meta="userinfo", uiprop="rights")["userinfo"]
-
-        namespace.username = userinfo["name"]
-        namespace.userrights = userinfo["rights"]
-        namespace.logged_in = "anon" not in userinfo
-        if has_password:
             del(namespace.password)
+            parser.error("Missing argument: USERNAME")
 

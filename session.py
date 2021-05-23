@@ -1,15 +1,116 @@
+import sys
 import warnings
-import requests
+from typing import Iterable, List, Optional
+
+from requests import Session
 
 from .errors import MediaWikiError, MediaWikiWarning
 
 
-class MWApiSession(requests.Session):
-    def __init__(self, api_root, *args, **kwargs):
+class MWApiSession(Session):
+    def __init__(self, api_root : str, *args, **kwargs):
+        """
+        Create a connection to the MediaWiki wiki at api_root.
+        api_root should be a URL with no query string
+        """
         super(MWApiSession, self).__init__(*args, **kwargs)
         self.api_root = api_root
 
+        self._userinfo = self._update_userinfo([])
+        self._interesting_user_properties = set()
+
+
+    def _uiprop(self, prop : str) -> Optional[str]:
+        if self._userinfo is None or str not in self._userinfo:
+            self._update_userinfo([prop])
+
+        return self._userinfo.get(prop, None)
+
+
+    @property
+    def usergroups(self) -> List[str]:
+        """
+        A list of groups the currently logged-in user belongs to,
+        including the special '*' group, even if not logged in.
+        """
+
+        return self._uiprop("groups")
+
+
+    @property
+    def userrights(self) -> List[str]:
+        """
+        The permissions of the currently logged in user, or
+        the permissions granted to everyone if nobody is logged in
+        """
+        return self._uiprop("rights")
+
+
+    @property
+    def userid(self) -> int:
+        if self._userinfo is None:
+            self._update_userinfo()
+
+        return self._userinfo["id"]
+
+
+    @property
+    def username(self) -> str:
+        """
+        The username of the currently logged in user.
+        If not logged in, this will instead be the user's IP address.
+        """
+        if self._userinfo is None:
+            self._update_userinfo()
+
+        return self._userinfo["name"]
+
+
+    @property
+    def logged_in(self) -> bool:
+        """
+        Whether a user is logged in in this session.
+        """
+        if self._userinfo is None:
+            self._update_userinfo()
+
+        return "anon" not in self._userinfo
+
+
+    def _update_userinfo(self, properties : Iterable[str] = set()) -> None:
+        """
+        Submit a meta=userinfo query
+        """
+
+        self._interesting_user_properties.intersection_update(properties)
+
+        self._userinfo = self.full_query(meta="userinfo", uiprop='|'.join(self._interesting_user_properties))["userinfo"]
+
+
+    def login(self, username, password):
+        login_response = self.post_action("login", token_type="login", token_key="lgtoken", lgname=username, lgpassword=password)["login"]
+
+        if login_response["result"] != "Success":
+            # Result was probably "Failed"
+            # May have been "WrongToken"
+            # "Needtoken" has been observed, but shouldn't occur
+            raise MediaWikiError(login_response["result"], login_response["reason"], "")
+
+        print(f"Logged in as user {login_response['lgusername']} (ID: {login_response['lguserid']})", file=sys.stderr)
+
+        self._update_userinfo()
+
+
+    def logout(self):
+        self.post_action("logout")
+
+        self._update_userinfo()
+
+
     def query(self, verbose=False, **kwargs):
+        """
+        Submit a query action
+        """
         params = kwargs
 
         params["action"] = "query"
@@ -57,7 +158,17 @@ class MWApiSession(requests.Session):
         return aggregate_data
 
 
-    def post_action(self, action, token_type="csrf", raw_response=False, **kwargs):
+    def post_action(self,
+            action,
+            token_type = "csrf",
+            token_key = "token",
+            raw_response = False,
+            allow_anonymous = False,
+            **kwargs):
+
+        if not allow_anonymous and not self.logged_in:
+            raise RuntimeError("Action not permitted while logged out")
+
         payload = kwargs
 
         payload["action"] = action
@@ -67,10 +178,7 @@ class MWApiSession(requests.Session):
             token_response = self.full_query(meta="tokens", type=token_type)
             token = token_response["tokens"][token_type+"token"]
 
-            if action == "login":
-                payload["lgtoken"] = token
-            else:
-                payload["token"] = token
+            payload[token_key] = token
 
         response = self.post(self.api_root, payload)
         response.raise_for_status()
