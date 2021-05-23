@@ -1,13 +1,12 @@
 from .session import MWApiSession
 from .encapsulating_argparse import EncapsulatingParser
 import argparse
-import requests
 import warnings
 import sys
 
 
 class MWApiParser(EncapsulatingParser):
-    def __init__(self, after_full_parse=[], **kwargs):
+    def __init__(self, api_root=None, after_full_parse=[], **kwargs):
         try:
             iter(after_full_parse)
         except TypeError:
@@ -16,7 +15,11 @@ class MWApiParser(EncapsulatingParser):
             after_full_parse = after_full_parse + [MWApiParser._login]
         
         super(MWApiParser, self).__init__(after_full_parse=after_full_parse, **kwargs)
-        self.add_argument("API_root", type=str, metavar="API-ROOT")
+
+        if api_root is None:
+            self.add_argument("API_root", type=str, metavar="API-ROOT")
+        else:
+            self.add_argument("--api-root", type=str, metavar="API-ROOT", default=api_root)
 
         self.add_argument("--username", "--user", type=str, metavar="USERNAME", default=argparse.SUPPRESS)
         auth_mutex = self.add_mutually_exclusive_group()
