@@ -1,5 +1,6 @@
-from .mw_api import MWApiParser, MWApiSession
+from .session import MWApiSession
 from .errors import MediaWikiError, MediaWikiWarning
+from .parser import MWApiParser
 
 __all__ = [
     "MWApiParser", "MediaWikiWarning", "MediaWikiError", "MWApiSession",
