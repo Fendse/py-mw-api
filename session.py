@@ -82,7 +82,7 @@ class MWApiSession(Session):
         Submit a meta=userinfo query
         """
 
-        self._interesting_user_properties.intersection_update(properties)
+        self._interesting_user_properties.update(properties)
 
         self._userinfo = self.full_query(meta="userinfo", uiprop='|'.join(self._interesting_user_properties))["userinfo"]
 
