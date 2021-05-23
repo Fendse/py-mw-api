@@ -64,24 +64,7 @@ class MWApiParser(EncapsulatingParser):
         if has_password:
             del(namespace.password)
 
-            
-class MediaWikiWarning(RuntimeWarning):
-    pass # TODO        
 
-
-class MediaWikiError(RuntimeError):
-    def __init__(self, code, info, details):
-        self.code = code
-        self.info = info
-        self.details = details
-
-    def from_response(response):
-        code = response["error"]["code"]
-        info = response["error"]["info"]
-        details = response["error"]["*"]
-        return MediaWikiError(code, info, details)
-
-    
 class MWApiSession(requests.Session):
     def __init__(self, api_root, *args, **kwargs):
         super(MWApiSession, self).__init__(*args, **kwargs)
