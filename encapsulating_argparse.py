@@ -1,29 +1,37 @@
-import argparse
+from argparse import ArgumentParser, Namespace
+from typing import Callable, Iterable, Union
 
-class EncapsulatingParser(argparse.ArgumentParser):
+class EncapsulatingParser(ArgumentParser):
     """
-    A subclass of argparse.ArgumentParser which allows for callbacks to be specified.
-    In addition to all functionality provided by argparse.ArgumentParser, CustomParser
-    allows a parser to be assigned callbacks using the after_parse and after_full_parse
-    parameters.
+    A variant of ArgumentParser which allows for callbacks to be specified.
+    EncapsulatingParser allows a parser to be assigned callbacks using
+    the optional after_parse and after_full_parse parameters.
 
-    after_parse takes a list of callables. Each of those will be called, taking the parser and the namespace as positional parameters, after any set of arguments have been parsed.
-    after_full_parse takes a list of callables. Each of those will be called, taking the parser and the namespace as positional parameters, only after ALL arguments have been parsed.
+    These parameters each take either a
+    Callable[[ArgumentParser, Namespace], None] or an iterable of those.
 
-    The return values of these functions are all ignored. They exist to perform side effects or to modify the namespace in place.
-
-    Instead of an iterable, after_parse or after_full_parse can be specified as a single callable.
+    The arguments to after_parse are called in order after any set of arguments
+    are parsed by parse_args or parse_known_args.
+    The arguments to after_full_parse are only called after ALL arguments
+    have been parsed
+    Their return values are all ignored - they exist to perform side effects or
+    to modify the namespace in place
     """
-    def __init__(self, *args, after_parse=[], after_full_parse=[], **kwargs):
+    def __init__(self, *args,
+            after_parse : Union[Callable[[ArgumentParser, Namespace], None], Iterable[Callable[[ArgumentParser, Namespace], None]]] = [],
+            after_full_parse : Union[Callable[[ArgumentParser, Namespace], None], Iterable[Callable[[ArgumentParser, Namespace], None]]] = [],
+            **kwargs):
         super(EncapsulatingParser, self).__init__(*args, **kwargs)
-        try:
-            iter(after_parse)
-        except TypeError:
+
+        if hasattr(after_parse, "__call__"):
             after_parse = [after_parse]
-        try:
-            iter(after_full_parse)
-        except TypeError:
+        else:
+            after_parse = list(after_parse)
+
+        if hasattr(after_full_parse, "__call__"):
             after_full_parse = [after_full_parse]
+        else:
+            after_full_parse = list(after_full_parse)
 
         for parent in kwargs.get("parents", []):
             try:
@@ -37,15 +45,15 @@ class EncapsulatingParser(argparse.ArgumentParser):
 
         self._after_parse = after_parse
         self._after_full_parse = after_full_parse
-                
-    def parse_known_args(self, *args, **kwargs):
+
+    def parse_known_args(self, *args, **kwargs) -> Namespace:
         namespace, unparsed_args = super(EncapsulatingParser, self).parse_known_args(*args, **kwargs)
 
         for callback in self._after_parse:
             callback(self, namespace)
-            
+
         if not unparsed_args:
             for callback in self._after_full_parse:
                 callback(self, namespace)
-                            
+
         return namespace, unparsed_args
