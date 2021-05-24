@@ -88,7 +88,7 @@ class MWApiSession(Session):
 
 
     def login(self, username, password):
-        login_response = self.post_action("login", token_type="login", token_key="lgtoken", lgname=username, lgpassword=password)["login"]
+        login_response = self.post_action("login", token_type="login", token_key="lgtoken", allow_anonymous=True, lgname=username, lgpassword=password)["login"]
 
         if login_response["result"] != "Success":
             # Result was probably "Failed"
